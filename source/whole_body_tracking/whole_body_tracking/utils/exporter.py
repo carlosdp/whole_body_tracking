@@ -29,7 +29,9 @@ def export_motion_policy_as_onnx(
 
 
 class _OnnxMotionPolicyExporter(_OnnxPolicyExporter):
-    def __init__(self, env: ManagerBasedRLEnv, actor_critic, normalizer=None, verbose=False):
+    def __init__(
+        self, env: ManagerBasedRLEnv, actor_critic, normalizer=None, verbose=False
+    ):
         super().__init__(actor_critic, normalizer, verbose)
         cmd: MotionCommand = env.command_manager.get_term("motion")
 
@@ -42,7 +44,9 @@ class _OnnxMotionPolicyExporter(_OnnxPolicyExporter):
         self.time_step_total = self.joint_pos.shape[0]
 
     def forward(self, x, time_step):
-        time_step_clamped = torch.clamp(time_step.long().squeeze(-1), max=self.time_step_total - 1)
+        time_step_clamped = torch.clamp(
+            time_step.long().squeeze(-1), max=self.time_step_total - 1
+        )
         return (
             self.actor(self.normalizer(x)),
             self.joint_pos[time_step_clamped],
@@ -81,23 +85,34 @@ class _OnnxMotionPolicyExporter(_OnnxPolicyExporter):
 def list_to_csv_str(arr, *, decimals: int = 3, delimiter: str = ",") -> str:
     fmt = f"{{:.{decimals}f}}"
     return delimiter.join(
-        fmt.format(x) if isinstance(x, (int, float)) else str(x) for x in arr  # numbers → format, strings → as-is
+        fmt.format(x) if isinstance(x, (int, float)) else str(x)
+        for x in arr  # numbers → format, strings → as-is
     )
 
 
-def attach_onnx_metadata(env: ManagerBasedRLEnv, run_path: str, path: str, filename="policy.onnx") -> None:
+def attach_onnx_metadata(
+    env: ManagerBasedRLEnv, run_path: str, path: str, filename="policy.onnx"
+) -> None:
     onnx_path = os.path.join(path, filename)
     metadata = {
         "run_path": run_path,
         "joint_names": env.scene["robot"].data.joint_names,
         "joint_stiffness": env.scene["robot"].data.joint_stiffness[0].cpu().tolist(),
         "joint_damping": env.scene["robot"].data.joint_damping[0].cpu().tolist(),
-        "default_joint_pos": env.scene["robot"].data.default_joint_pos_nominal.cpu().tolist(),
+        "default_joint_pos": env.scene["robot"]
+        .data.default_joint_pos_nominal.cpu()
+        .tolist(),
         "command_names": env.command_manager.active_terms,
         "observation_names": env.observation_manager.active_terms["policy"],
-        "action_scale": env.action_manager.get_term("joint_pos")._scale[0].cpu().tolist(),
+        "action_scale": env.action_manager.get_term("joint_pos")
+        ._scale[0]
+        .cpu()
+        .tolist(),
         "anchor_body_name": env.command_manager.get_term("motion").cfg.anchor_body_name,
         "body_names": env.command_manager.get_term("motion").cfg.body_names,
+        "total_time_steps": int(
+            env.command_manager.get_term("motion").motion.time_step_total
+        ),
     }
 
     model = onnx.load(onnx_path)
